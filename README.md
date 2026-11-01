@@ -44,8 +44,12 @@ Register a host through the client. Set SEED_OWNER_EMAIL to that account email, 
 
 ## Tests
 
-`npm test` runs six domain validation tests and skips the opt-in MongoDB integration test. To run the latter, set RUN_INTEGRATION=1. It downloads a temporary MongoDB binary and creates an isolated replica set. Some containers cannot run mongod; use an unrestricted development machine for that test.
+`npm test` runs six domain validation tests and skips the opt-in MongoDB integration test. Run `npm run test:integration` for all seven tests. It downloads a temporary MongoDB binary and creates an isolated replica set over TCP. The integration suite covers login, active-session/JWT enforcement, owner spoofing rejection, studio creation/update/deletion, cancellation rules, and concurrent booking confirmation. It uses a temporary database, not your Atlas data.
 
 ## Deployment
 
 Build: `npm ci`. Start: `npm start`. Set NODE_ENV=production, real secrets, Atlas credentials, exact HTTPS CLIENT_URL, and provider credentials in your host settings. Add Google callbacks for your client origin. Never commit .env.
+
+## Verified revision
+
+All seven tests, including the real database integration suite, passed during preparation. A separate full-stack browser check passed registration, login, studio creation, private-page refresh, mobile booking, host confirmation, and overlap rejection through the client proxy.

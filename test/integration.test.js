@@ -3,13 +3,16 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
-const run = process.env.RUN_INTEGRATION === "1";
+const run =
+  process.env.RUN_INTEGRATION === "1" ||
+  process.env.npm_lifecycle_event === "test:integration";
 test(
   "authentication, ownership, cookie JWT, booking collisions, status transitions and CRUD",
   { skip: !run, timeout: 180000 },
   async () => {
     const mongo = await MongoMemoryReplSet.create({
       replSet: { count: 1 },
+      instanceOpts: [{ args: ["--nounixsocket"] }],
       binary: { version: "8.0.17" },
     });
     const port = 5100;
@@ -106,6 +109,7 @@ test(
         });
         assert.equal(login.status, 200, JSON.stringify(login.data));
         assert.ok((await request("/auth/get-session")).data.user);
+        assert.equal((await request("/studios", "POST", {})).status, 401);
         const token = await request("/access", "POST");
         assert.equal(token.status, 200);
         assert.ok(
@@ -117,6 +121,7 @@ test(
       }
       const created = await host("/studios", "POST", {
         title: "Test Studio",
+        ownerEmail: "guest@test.com",
         category: "Photo Studio",
         hourlyRate: 50,
         deposit: 100,
@@ -129,6 +134,17 @@ test(
       });
       assert.equal(created.status, 201, JSON.stringify(created.data));
       const id = created.data._id;
+      assert.equal(created.data.ownerEmail, "host@test.com");
+      const disposable = await host("/studios", "POST", {
+        ...created.data,
+        title: "Disposable studio",
+      });
+      assert.equal(disposable.status, 201);
+      assert.equal(
+        (await host(`/studios/${disposable.data._id}`, "DELETE")).status,
+        200,
+      );
+      assert.equal((await host(`/studios/${disposable.data._id}`)).status, 404);
       assert.equal((await guest(`/studios/${id}`, "DELETE")).status, 404);
       assert.equal(
         (
@@ -172,6 +188,26 @@ test(
         [200, 409],
       );
       assert.equal((await guest("/bookings", "POST", payload)).status, 409);
+      const confirmedIndex = confirmations.findIndex(
+        (result) => result.status === 200,
+      );
+      const confirmedId = [first, second][confirmedIndex].data._id;
+      assert.equal(
+        (
+          await guest(`/bookings/${confirmedId}`, "PATCH", {
+            status: "Cancelled",
+          })
+        ).status,
+        409,
+      );
+      assert.equal(
+        (
+          await host(`/bookings/${confirmedId}`, "PATCH", {
+            status: "Completed",
+          })
+        ).status,
+        409,
+      );
       const adjacent = await guest("/bookings", "POST", {
         studioId: id,
         start: end.toISOString(),
