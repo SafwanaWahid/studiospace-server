@@ -12,6 +12,7 @@ import { sameOrigin, session, cookieOptions } from "./security.js";
 import { studioRoutes } from "./routes/studios.js";
 import { bookingRoutes } from "./routes/bookings.js";
 import { uploadRoutes } from "./routes/upload.js";
+import { wishlistRoutes } from "./routes/wishlist.js";
 const app = express();
 app.disable("x-powered-by");
 app.set("trust proxy", 1);
@@ -80,6 +81,7 @@ app.get("/api/config", (req, res) =>
 );
 studioRoutes(app);
 bookingRoutes(app);
+wishlistRoutes(app);
 uploadRoutes(app);
 app.use((req, res) =>
   res.status(404).json({ message: "API route not found." }),
